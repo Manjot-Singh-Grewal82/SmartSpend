@@ -1,8 +1,16 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const sendEmail = require("../services/emailService");
 const TokenBlacklist = require("../models/tokenBlacklist");
+
+// Helper: generate an opaque refresh token and return its hash + raw value
+const generateRefreshToken = () => {
+  const raw = crypto.randomBytes(40).toString('hex');
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  return { raw, hash };
+};
 
 exports.signup = async (req, res) => {
   const { email, password } = req.body;
@@ -13,19 +21,23 @@ exports.signup = async (req, res) => {
       return res.status(409).json({ message: "User already exists" }); // 409 Conflict
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10); // Ensure bcrypt is working correctly
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ email, password: hashedPassword });
     await user.save();
     const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "15m",
     });
+    const { raw: refreshRaw, hash: refreshHash } = generateRefreshToken();
+    user.refreshToken = refreshHash;
+    await user.save();
     res.json({
-      token: token,
-      expiresIn: 3600,
+      token,
+      refreshToken: refreshRaw,
+      expiresIn: 900,
       user: { id: user._id, email: user.email, role: user.role },
     });
   } catch (err) {
-    console.error(err); // Log the error to see the details
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -43,11 +55,15 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
     const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "15m",
     });
+    const { raw: refreshRaw, hash: refreshHash } = generateRefreshToken();
+    user.refreshToken = refreshHash;
+    await user.save();
     res.json({
-      token: token,
-      expiresIn: 3600,
+      token,
+      refreshToken: refreshRaw,
+      expiresIn: 900,
       user: { id: user._id, email: user.email, role: user.role },
     });
   } catch (err) {
@@ -178,40 +194,61 @@ exports.resetPassword = async (req, res) => {
 
 exports.logout = async (req, res) => {
   try {
-    // Get the token from the request
     const token = req.headers.authorization?.split(' ')[1];
-    
     if (!token) {
-      // If no token, just return success (no need to blacklist)
       return res.status(200).json({ message: "Logged out successfully" });
     }
-    
-    // Even if the token is invalid/expired, we'll try to blacklist it
     let tokenData;
     try {
       tokenData = jwt.decode(token);
     } catch (err) {
       console.error("Error decoding token:", err);
     }
-    
-    // If we can get expiry from token, use it, otherwise default to 1 hour from now
-    const expiresAt = tokenData?.exp 
+    const expiresAt = tokenData?.exp
       ? new Date(tokenData.exp * 1000)
       : new Date(Date.now() + 3600000);
-    
-    // Create a new TokenBlacklist entry
-    const blacklistedToken = new TokenBlacklist({
-      token,
-      expiresAt
-    });
-    
+    const blacklistedToken = new TokenBlacklist({ token, expiresAt });
     await blacklistedToken.save();
-    
+
+    // Also revoke the stored refresh token for this user
+    if (tokenData?.id) {
+      await User.findByIdAndUpdate(tokenData.id, { refreshToken: null });
+    }
+
     res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {
     console.error("Logout error:", err);
-    // Even if there's an error, we consider the logout successful from the client perspective
     res.status(200).json({ message: "Logged out successfully" });
+  }
+};
+
+exports.refreshAccessToken = async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ message: "Refresh token is required" });
+  }
+  try {
+    const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const user = await User.findOne({ refreshToken: hash });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+    // Issue a new short-lived access token
+    const newAccessToken = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
+      expiresIn: "15m",
+    });
+    // Rotate the refresh token (security best practice)
+    const { raw: newRefreshRaw, hash: newRefreshHash } = generateRefreshToken();
+    user.refreshToken = newRefreshHash;
+    await user.save();
+    res.json({
+      token: newAccessToken,
+      refreshToken: newRefreshRaw,
+      expiresIn: 900,
+    });
+  } catch (err) {
+    console.error("Refresh token error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 

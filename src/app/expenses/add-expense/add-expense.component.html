@@ -18,6 +18,37 @@
             </div>
             }
 
+            <!-- NLP Quick-Fill Panel -->
+            <div class="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <p class="text-sm font-medium text-indigo-700 mb-2">
+                    <i class="fas fa-magic mr-1"></i> Quick-fill with AI
+                </p>
+                <p class="text-xs text-indigo-500 mb-3">Type a sentence like <em>"Spent ₹500 on lunch yesterday"</em> and let Gemini fill the form.</p>
+                <div class="flex gap-2">
+                    <input id="nlp-input"
+                           type="text"
+                           [(ngModel)]="nlpText"
+                           [ngModelOptions]="{standalone: true}"
+                           (keyup.enter)="parseFromText()"
+                           class="flex-1 rounded-lg border border-indigo-300 py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                           placeholder="Describe your expense in plain English…">
+                    <button type="button"
+                            (click)="parseFromText()"
+                            [disabled]="nlpLoading() || !nlpText.trim()"
+                            class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                        @if (nlpLoading()) {
+                            <span class="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+                        } @else {
+                            <i class="fas fa-bolt"></i>
+                        }
+                        Fill
+                    </button>
+                </div>
+                @if (nlpError()) {
+                    <p class="mt-2 text-xs text-red-600">{{ nlpError() }}</p>
+                }
+            </div>
+
             <!-- Form -->
             <form [formGroup]="expenseForm" (ngSubmit)="onSubmit()" class="space-y-6">
                 <!-- Description Field -->

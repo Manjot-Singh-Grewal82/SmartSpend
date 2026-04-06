@@ -46,4 +46,26 @@ export class ExpenseService {
       headers: this.getHeaders(),
     });
   }
+
+  parseExpense(text: string): Observable<{ parsed: any }> {
+    return this.http.post<{ parsed: any }>(`${this.apiUrl}/parse`, { text }, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  exportExpenses(): void {
+    const token = this.authService.getToken();
+    const link = document.createElement('a');
+    // Use a GET request with fetch so we can pass the Auth header
+    fetch(`${this.apiUrl}/export`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.blob())
+      .then(blob => {
+        link.href = URL.createObjectURL(blob);
+        link.download = 'expenses.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+      });
+  }
 }

@@ -210,4 +210,8 @@ export class ListExpensesComponent implements OnInit {
     };
     return classes[category] || 'bg-gray-100 text-gray-800';
   }
+
+  exportCSV() {
+    this.expenseService.exportExpenses();
+  }
 }

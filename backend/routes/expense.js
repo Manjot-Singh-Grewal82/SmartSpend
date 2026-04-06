@@ -5,6 +5,8 @@ const {
     getExpense,
     updateExpense,
     deleteExpense,
+    exportExpensesCSV,
+    parseExpense,
 } = require('../controllers/expenseController');
 const authMiddleware = require('../middleware/authMiddleware').authMiddleware;
 const router = express.Router();
@@ -89,6 +91,18 @@ router.post('/', addExpense);
  *           type: string
  *           enum: [week, month, 3months, 6months, custom]
  *         description: Predefined period for filtering
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number (default 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of results per page (max 100, default 20)
  *     responses:
  *       200:
  *         description: List of expenses
@@ -98,6 +112,76 @@ router.post('/', addExpense);
  *         description: Server error
  */
 router.get('/', getExpenses);
+
+/**
+ * @swagger
+ * /api/expenses/export:
+ *   get:
+ *     summary: Export expenses to CSV
+ *     tags: [Expenses]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file download
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       500:
+ *         description: Server error
+ */
+router.get('/export', exportExpensesCSV);
+
+/**
+ * @swagger
+ * /api/expenses/parse:
+ *   post:
+ *     summary: Parse a natural-language sentence into a structured expense (does not save)
+ *     tags: [Expenses]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - text
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 example: "Spent 450 rupees on groceries yesterday"
+ *     responses:
+ *       200:
+ *         description: Parsed expense fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 parsed:
+ *                   type: object
+ *                   properties:
+ *                     amount:
+ *                       type: number
+ *                     description:
+ *                       type: string
+ *                     category:
+ *                       type: string
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *       400:
+ *         description: Missing text field
+ *       422:
+ *         description: Could not extract expense details
+ *       500:
+ *         description: Server error
+ */
+router.post('/parse', parseExpense);
 
 /**
  * @swagger

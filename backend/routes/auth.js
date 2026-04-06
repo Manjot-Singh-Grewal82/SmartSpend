@@ -7,7 +7,8 @@ const {
   resetPassword,
   logout,
   validateToken,
-  socialAuthCallback
+  socialAuthCallback,
+  refreshAccessToken
 } = require("../controllers/authController");
 const middlewares = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -173,6 +174,35 @@ router.post("/logout", middlewares.optionalAuthMiddleware, logout);
  *         description: Server error
  */
 router.get("/validate-token", middlewares.authMiddleware, validateToken);
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token using a refresh token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: New access token issued
+ *       400:
+ *         description: Refresh token is required
+ *       401:
+ *         description: Invalid or expired refresh token
+ *       500:
+ *         description: Server error
+ */
+router.post("/refresh", refreshAccessToken);
 
 // Google OAuth Routes
 /**

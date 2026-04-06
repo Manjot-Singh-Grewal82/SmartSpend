@@ -1,8 +1,9 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
   FormControl,
   FormGroup,
+  FormsModule,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
@@ -12,7 +13,7 @@ import { AsyncPipe } from '@angular/common';
 
 @Component({
     selector: 'app-add-expense',
-    imports: [ReactiveFormsModule, RouterLink, AsyncPipe],
+    imports: [ReactiveFormsModule, FormsModule, RouterLink, AsyncPipe],
     templateUrl: './add-expense.component.html',
     styleUrl: './add-expense.component.scss'
 })
@@ -28,6 +29,9 @@ export class AddExpenseComponent implements OnInit {
     'Others',
   ];
   error$ = new BehaviorSubject<string>('');
+  nlpText = '';
+  nlpLoading = signal(false);
+  nlpError = signal('');
 
   expenseService = inject(ExpenseService);
   router = inject(Router);
@@ -69,6 +73,28 @@ export class AddExpenseComponent implements OnInit {
     this.expenseForm.get('description')?.reset();
     this.expenseForm.get('amount')?.reset();
     this.expenseForm.get('category')?.reset();
+  }
+
+  parseFromText() {
+    if (!this.nlpText.trim()) return;
+    this.nlpLoading.set(true);
+    this.nlpError.set('');
+    this.expenseService.parseExpense(this.nlpText).subscribe({
+      next: ({ parsed }) => {
+        this.expenseForm.patchValue({
+          description: parsed.description,
+          amount: parsed.amount,
+          category: parsed.category,
+          date: parsed.date ? parsed.date.split('T')[0] : new Date().toISOString().split('T')[0],
+        });
+        this.nlpText = '';
+        this.nlpLoading.set(false);
+      },
+      error: (err) => {
+        this.nlpError.set(err?.error?.message || 'Could not parse expense. Try being more specific.');
+        this.nlpLoading.set(false);
+      },
+    });
   }
 
   onSubmit() {

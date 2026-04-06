@@ -1,28 +1,20 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require("dotenv").config();
 
-/**
- * Initialize the Google Generative AI with API key if available
- */
 let genAI = null;
 let model = null;
 if (process.env.GEMINI_API_KEY) {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  // Using gemini-2.5-flash which is the standard free tier model available
+  model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
-/**
- * Generate insights from expenses data using Gemini AI
- * @param {Array} expenses - User's expense data
- * @returns {Promise<Object>} - AI generated insights
- */
 const generateExpenseInsights = async (expenses) => {
   if (!genAI || !model) {
     return generateFallbackInsights(expenses);
   }
 
   try {
-    // Format expense data
     const expenseData = expenses
       .map(
         (exp) =>
@@ -32,7 +24,6 @@ const generateExpenseInsights = async (expenses) => {
       )
       .join("\n");
 
-    // Create AI prompt
     const prompt = `
       Analyze these expense records and provide useful insights:
       ${expenseData}
@@ -53,16 +44,20 @@ const generateExpenseInsights = async (expenses) => {
         "budgetHealth": string
       }
       
-      Important: Use the Indian Rupee symbol (₹) for any currency values in the response and make sure not to include any currency symbols in the numeric values of the JSON.
+      Important: Use the Indian Rupee symbol (₹) for any currency values in the response and make sure not to include any currency symbols in the numeric values of the JSON. Return only the JSON.
     `;
 
-    // Generate AI content
     const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    let raw = result.response.text().trim();
+    
+    let jsonStr = raw;
+    const fenceMatch = raw.match(/```(?:json|JSON)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
 
-    // Parse JSON response
     try {
-      return JSON.parse(responseText);
+      return JSON.parse(jsonStr);
     } catch (error) {
       console.error("Failed to parse AI response:", error);
       return generateFallbackInsights(expenses);
@@ -73,28 +68,19 @@ const generateExpenseInsights = async (expenses) => {
   }
 };
 
-/**
- * Generate basic insights without AI when Gemini is unavailable
- * @param {Array} expenses - User's expense data
- * @returns {Object} - Basic statistical insights
- */
 const generateFallbackInsights = (expenses) => {
-  // Calculate total spent
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-  // Group by category and calculate totals
   const categoryTotals = {};
   expenses.forEach((exp) => {
     categoryTotals[exp.category] =
       (categoryTotals[exp.category] || 0) + exp.amount;
   });
 
-  // Sort categories by amount spent
   const topCategories = Object.entries(categoryTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([category, amount]) => ({ category, amount }));
 
-  // Group by month
   const monthlySpending = {};
   expenses.forEach((exp) => {
     const date = new Date(exp.date);
@@ -104,7 +90,6 @@ const generateFallbackInsights = (expenses) => {
     monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + exp.amount;
   });
 
-  // Convert to array and sort chronologically
   const trends = Object.entries(monthlySpending)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, amount]) => ({ month, amount }));
@@ -126,6 +111,68 @@ const generateFallbackInsights = (expenses) => {
   };
 };
 
+const VALID_CATEGORIES = ['Groceries', 'Leisure', 'Electronics', 'Utilities', 'Clothing', 'Health', 'Others'];
+
+const parseNaturalLanguageExpense = async (text, referenceDate) => {
+  const today = referenceDate ? new Date(referenceDate) : new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  if (!genAI || !model) {
+    return null;
+  }
+
+  const prompt = `
+Today's date is ${todayStr}.
+The user said: "${text}"
+
+Extract expense details and return ONLY a valid JSON object — no markdown, no explanation.
+Use this exact shape:
+{
+  "amount": <number, required>,
+  "description": <string, required>,
+  "category": <one of: ${VALID_CATEGORIES.join(', ')}>,
+  "date": <ISO 8601 date string, e.g. "${todayStr}">
+}
+
+Rules:
+- amount must be a positive number (interpret currency symbols / words like "rupees", "rs", "₹").
+- description should be a short readable label (3–8 words).
+- Pick the closest matching category from the allowed list; default to "Others" if unclear.
+- Infer the date from relative words like "yesterday", "last Monday", "2 days ago"; default to today.
+- If you cannot determine the amount, return { "error": "amount_missing" }.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    let raw = result.response.text().trim();
+    
+    let jsonStr = raw;
+    const fenceMatch = raw.match(/```(?:json|JSON)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+
+    const parsed = JSON.parse(jsonStr);
+
+    if (parsed.error) return null;
+
+    if (!VALID_CATEGORIES.includes(parsed.category)) {
+      parsed.category = 'Others';
+    }
+
+    return {
+      amount: Number(parsed.amount),
+      description: String(parsed.description),
+      category: parsed.category,
+      date: parsed.date ? parsed.date.split('T')[0] : todayStr,
+    };
+  } catch (err) {
+    console.error('NLP parse error:', err);
+    return null;
+  }
+};
+
 module.exports = {
   generateExpenseInsights,
+  parseNaturalLanguageExpense,
 };

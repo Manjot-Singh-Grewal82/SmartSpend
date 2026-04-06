@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, of, tap, map, catchError, finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -22,7 +22,7 @@ export class AuthService {
   signup(user: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/signup`, user).pipe(
       tap((response: any) => {
-        this.handleAuthentication(response.token, response.expiresIn, response.user);
+        this.handleAuthentication(response.token, response.expiresIn, response.user, response.refreshToken);
       })
     )
   }
@@ -30,7 +30,7 @@ export class AuthService {
   login(user: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/login`, user).pipe(
       tap((response: any) => {
-        this.handleAuthentication(response.token, response.expiresIn, response.user);
+        this.handleAuthentication(response.token, response.expiresIn, response.user, response.refreshToken);
       })
     );
   }
@@ -43,8 +43,28 @@ export class AuthService {
     return sessionStorage.getItem('token');
   }
 
-  getLastKnownToken(): string | null {
-    return this.lastKnownToken;
+  getRefreshToken(): string | null {
+    return sessionStorage.getItem('refreshToken');
+  }
+
+  setToken(token: string, expiresIn: number): void {
+    const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
+    sessionStorage.setItem('token', token);
+    sessionStorage.setItem('tokenExpirationDate', expirationDate.toISOString());
+    this.autoLogout(expiresIn * 1000);
+  }
+
+  refreshAccessToken(): Observable<any> {
+    const refreshToken = this.getRefreshToken();
+    const skipHeaders = new HttpHeaders({ 'X-Skip-Interceptor': '1' });
+    return this.http.post(`${this.apiUrl}/refresh`, { refreshToken }, { headers: skipHeaders }).pipe(
+      tap((response: any) => {
+        this.setToken(response.token, response.expiresIn);
+        if (response.refreshToken) {
+          sessionStorage.setItem('refreshToken', response.refreshToken);
+        }
+      })
+    );
   }
 
   redirectToExpenses() {
@@ -52,14 +72,12 @@ export class AuthService {
   }
 
   logout() {
-    // Save token before clearing
     const token = this.getToken();
     this.lastKnownToken = token;
-    
-    // Clear client side first
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('tokenExpirationDate');
     sessionStorage.removeItem('userData');
+    sessionStorage.removeItem('refreshToken');
     
     if (this.tokenExpirationTimer) {
       clearTimeout(this.tokenExpirationTimer);
@@ -93,22 +111,16 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/reset-password/${token}`, { password });
   }
 
-  private handleAuthentication(token: string, expiresIn: number, userData?: any) {
+  private handleAuthentication(token: string, expiresIn: number, userData?: any, refreshToken?: string) {
     const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
-    
-    // Use a combination of sessionStorage and more secure cookie options
-    // Store minimal information in sessionStorage
     sessionStorage.setItem('tokenExpirationDate', expirationDate.toISOString());
-    
-    // For a more secure solution, consider using HttpOnly cookies via your backend
-    // But for the current implementation:
     sessionStorage.setItem('token', token);
-    
-    // Store user data if available
+    if (refreshToken) {
+      sessionStorage.setItem('refreshToken', refreshToken);
+    }
     if (userData) {
       sessionStorage.setItem('userData', JSON.stringify(userData));
     }
-    
     this.autoLogout(expiresIn * 1000);
   }
 
@@ -188,5 +200,9 @@ export class AuthService {
 
   handleSocialAuth(token: string, expiresIn: number, userData: any): void {
     this.handleAuthentication(token, expiresIn, userData);
+  }
+
+  getLastKnownToken(): string | null {
+    return this.lastKnownToken;
   }
 }
