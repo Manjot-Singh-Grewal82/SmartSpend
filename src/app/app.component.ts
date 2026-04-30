@@ -36,7 +36,7 @@ export class AppComponent implements OnInit {
       name: 'canonical',
       content: 'https://expense-tracker-app-manthanank.vercel.app/',
     });
-    this.meta.addTag({ property: 'og:title', content: 'Expense Tracker App' });
+    this.meta.addTag({ property: 'og:title', content: 'SmartSpend App' });
     this.meta.addTag({ name: 'author', content: 'Manthan Ankolekar' });
     this.meta.addTag({
       name: 'keywords',
@@ -46,7 +46,7 @@ export class AppComponent implements OnInit {
     this.meta.addTag({
       property: 'og:description',
       content:
-        'A simple expense tracker app, built with Angular. It helps you to track your expenses. You can add, edit, delete, and filter your expenses.',
+        'A simple SmartSpend app, built with Angular. It helps you to track your expenses. You can add, edit, delete, and filter your expenses.',
     });
     this.meta.addTag({
       property: 'og:image',

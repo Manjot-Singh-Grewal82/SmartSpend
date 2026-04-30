@@ -1,7 +1,7 @@
-Expense Tracker App
+SmartSpend App
 ===================
 
-This is a full-stack expense tracker application built with a **Node.js + Express** backend and an **Angular** frontend. It allows users to sign up, log in, add, edit, delete, and filter expenses by date and category. The app also includes **AI-powered financial insights** using Google's Gemini API.
+This is a full-stack SmartSpend application built with a **Node.js + Express** backend and an **Angular** frontend. It allows users to sign up, log in, add, edit, delete, and filter expenses by date and category. The app also includes **AI-powered financial insights** using Google's Gemini API.
 
 Table of Contents
 -----------------
