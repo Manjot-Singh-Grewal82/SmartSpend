@@ -44,7 +44,7 @@ export class AppComponent implements OnInit {
     });
     this.meta.addTag({ name: 'robots', content: 'index, follow' });
     this.meta.addTag({
-      property: 'og:description',
+      property: 'og:title',
       content:
         'A simple SmartSpend app, built with Angular. It helps you to track your expenses. You can add, edit, delete, and filter your expenses.',
     });

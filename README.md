@@ -1,10 +1,8 @@
-SmartSpend App
-===================
+# SmartSpend App
 
 This is a full-stack SmartSpend application built with a **Node.js + Express** backend and an **Angular** frontend. It allows users to sign up, log in, add, edit, delete, and filter expenses by date and category. The app also includes **AI-powered financial insights** using Google's Gemini API.
 
-Table of Contents
------------------
+## Table of Contents
 
 - [Features](#features)
 - [Technologies Used](#technologies-used)
@@ -18,8 +16,7 @@ Table of Contents
 - [License](#license)
 - [Contact](#contact)
 
-Features
---------
+## Features
 
 - **User authentication with JWT**
 - **Responsive landing page**
@@ -39,11 +36,9 @@ Features
 - **Privacy policy and terms of service** pages
 - **Responsive design** using Tailwind CSS
 
-Technologies Used
------------------
+## Technologies Used
 
-Backend
--------
+## Backend
 
 - Node.js
 - Express.js
@@ -54,16 +49,14 @@ Backend
 - Swagger for API documentation
 - Express Rate Limiter & Helmet for security
 
-Frontend
---------
+## Frontend
 
 - Angular 19
 - Tailwind CSS for styling
 - NGX Charts for data visualization
 - Font Awesome icons
 
-Project Structure
------------------
+## Project Structure
 
 ```text
 expense-tracker-app/
@@ -86,8 +79,7 @@ Key frontend areas:
 - `src/app/expenses` – add, edit, list expenses
 - `src/app/core` – services, guards, interceptors, models
 
-Prerequisites
--------------
+## Prerequisites
 
 - Node.js (v16.x or later recommended)
 - Angular CLI (v19.x or later)
@@ -95,8 +87,7 @@ Prerequisites
 - Google Gemini API key
 - A Gmail account (or SMTP credentials) for password reset emails
 
-Installation
-------------
+## Installation
 
 1. **Clone the repository**
 
@@ -159,8 +150,7 @@ Installation
 
    The frontend will be available at `http://localhost:4200`.
 
-Running the Application
------------------------
+## Running the Application
 
 - **Backend**: `http://localhost:5000`
 - **Frontend**: `http://localhost:4200`
@@ -168,19 +158,16 @@ Running the Application
 
 Make sure the backend is running before using the frontend so that authentication and expense APIs work correctly.
 
-API Endpoints
--------------
+## API Endpoints
 
-Auth
-----
+## Auth
 
 - **POST `/api/auth/signup`** – Create a new user
 - **POST `/api/auth/login`** – Authenticate a user and return a JWT
 - **POST `/api/auth/forgot-password`** – Send password reset email
 - **POST `/api/auth/reset-password/:token`** – Reset user password
 
-Expenses
---------
+## Expenses
 
 - **GET `/api/expenses`** – Get all expenses for the logged-in user
 - **GET `/api/expenses/:id`** – Get a single expense by ID
@@ -188,8 +175,7 @@ Expenses
 - **PUT `/api/expenses/:id`** – Update an existing expense
 - **DELETE `/api/expenses/:id`** – Delete an expense
 
-Insights (AI)
--------------
+## Insights (AI)
 
 - **GET `/api/insights/ai`** – Get AI-generated insights for expenses with optional filters
   - Query parameters:
@@ -197,22 +183,20 @@ Insights (AI)
     - `endDate` – Filter expenses up to this date
     - `category` – Filter by expense category
 
-Usage
------
+## Usage
 
 1. **Sign Up** – Create a new account from the sign-up page.
 2. **Log In** – Log in with your credentials to access the dashboard.
 3. **Forgot Password** – Use the "Forgot password" link if you need to reset your password.
 4. **Reset Password** – Follow the link in the email to choose a new password.
-5. **Add Expense** – Add expenses with amount, category, date, and description.
+5. **Add Expense** – Add expenses with amount, category, date, and title.
 6. **View Expenses** – Browse all your expenses and use filters for date range and category.
 7. **Edit Expense** – Click an expense to update its details.
 8. **Delete Expense** – Remove an expense permanently.
 9. **Get AI Insights** – Open the insights section to see analysis of your spending patterns, top categories, anomalies, and saving suggestions.
 10. **View Charts** – Use the charts to visually explore your spending trends over time.
 
-Deployment
-----------
+## Deployment
 
 The application is deployed on Vercel at:
 
@@ -220,13 +204,11 @@ The application is deployed on Vercel at:
 
 Backend can be deployed separately (e.g., on services like Render, Railway, or any Node-compatible host) with the same environment variables as in local `.env`.
 
-License
--------
+## License
 
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-Contact
--------
+## Contact
 
 For questions or feedback:
 

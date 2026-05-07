@@ -4,9 +4,9 @@ export interface Expenses {
 }
 
 export interface Expense {
-  _id: string
+  id?: string
   user: string
-  description: string
+  title: string
   amount: number
   date: string
   category: string

@@ -1,36 +1,169 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+
+import {
+  Firestore,
+  collection,
+  collectionData,
+} from '@angular/fire/firestore';
+
+import { Observable, map } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
+
 export class AdminService {
-  private http = inject(HttpClient);
-  private apiUrl = environment.apiUrl;
+
+  firestore = inject(Firestore);
+
+  // =========================
+  // DASHBOARD STATS
+  // =========================
 
   getStats(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/admin/stats`);
+
+    const expenseRef = collection(
+      this.firestore,
+      'expenses'
+    );
+
+    return collectionData(
+      expenseRef,
+      { idField: 'id' }
+
+    ).pipe(
+
+      map((expenses: any[]) => {
+
+        const totalAmount = expenses.reduce(
+
+          (sum, expense) =>
+
+            sum + Number(expense.amount || 0),
+
+          0
+        );
+
+        // =========================
+        // CATEGORY DISTRIBUTION
+        // =========================
+
+        const categoryMap: any = {};
+
+        expenses.forEach((expense) => {
+
+          const category =
+            expense.category || 'Others';
+
+          if (!categoryMap[category]) {
+
+            categoryMap[category] = 0;
+          }
+
+          categoryMap[category] +=
+            Number(expense.amount || 0);
+        });
+
+        const categoryDistribution =
+
+          Object.keys(categoryMap).map(
+
+            (key) => {
+
+              return {
+
+                _id: key,
+
+                total: categoryMap[key],
+              };
+            }
+          );
+
+        return {
+
+          userCount: 1,
+
+          newUsers: 1,
+
+          expenseCount: expenses.length,
+
+          totalAmount,
+
+          categoryDistribution,
+        };
+      })
+    );
   }
 
-  getAllUsers(page = 1, limit = 10, search = ''): Observable<any> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('limit', limit.toString());
+  // =========================
+  // USERS PLACEHOLDER
+  // =========================
 
-    if (search) {
-      params = params.set('search', search);
-    }
+  getAllUsers(
+    page = 1,
+    limit = 10,
+    search = ''
+  ): Observable<any> {
 
-    return this.http.get(`${this.apiUrl}/admin/users`, { params });
+    return new Observable((observer) => {
+
+      observer.next({
+
+        users: [],
+
+        total: 0,
+
+        page,
+
+        limit,
+
+        search,
+      });
+
+      observer.complete();
+    });
   }
 
-  getUserDetails(userId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/admin/users/${userId}`);
+  // =========================
+  // USER DETAILS
+  // =========================
+
+  getUserDetails(
+    userId: string
+  ): Observable<any> {
+
+    return new Observable((observer) => {
+
+      observer.next({
+
+        id: userId,
+
+        name: 'Demo User',
+
+        email: 'demo@example.com',
+      });
+
+      observer.complete();
+    });
   }
 
-  getUserExpenses(userId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/admin/users/${userId}/expenses`);
+  // =========================
+  // USER EXPENSES
+  // =========================
+
+  getUserExpenses(
+    userId: string
+  ): Observable<any> {
+
+    const expenseRef = collection(
+      this.firestore,
+      'expenses'
+    );
+
+    return collectionData(
+      expenseRef,
+      { idField: 'id' }
+
+    ) as Observable<any>;
   }
 }

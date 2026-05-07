@@ -57,19 +57,17 @@ export class ResetPasswordComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.resetPasswordForm.invalid) return;
+  if (this.resetPasswordForm.invalid) return;
 
-    const password = this.resetPasswordForm.value.password;
-    const confirmPassword = this.resetPasswordForm.value.confirmPassword;
+  const password = this.resetPasswordForm.value.password;
+  const confirmPassword = this.resetPasswordForm.value.confirmPassword;
 
-    if (password !== confirmPassword) {
-      this.resetPasswordForm.setErrors({ passwordMismatch: true });
-      return;
-    }
-
-    this.authService.resetPassword(this.token, password).subscribe({
-      next: () => this.router.navigate(['/login']),
-      error: (err) => console.error(err)
-    });
+  if (password !== confirmPassword) {
+    this.resetPasswordForm.setErrors({ passwordMismatch: true });
+    return;
   }
+
+  console.log('Password reset (demo):', password);
+  this.router.navigate(['/login']);
+}
 }

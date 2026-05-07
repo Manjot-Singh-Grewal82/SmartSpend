@@ -1,48 +1,33 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
-import {
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { Component, inject } from '@angular/core';
+import { Auth } from '@angular/fire/auth';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 @Component({
-    selector: 'app-forgot-password',
-    imports: [ReactiveFormsModule, RouterLink],
-    templateUrl: './forgot-password.component.html',
-    styleUrl: './forgot-password.component.scss'
+  selector: 'app-forgot-password',
+  imports: [ReactiveFormsModule],
+  templateUrl: './forgot-password.component.html',
+  styleUrl: './forgot-password.component.scss'
 })
-export class ForgotPasswordComponent implements OnInit {
-  forgotPasswordForm: FormGroup = new FormGroup({});
+export class ForgotPasswordComponent {
 
-  authService = inject(AuthService);
-  router = inject(Router);
+  forgotPasswordForm = new FormGroup({
+    email: new FormControl('', [Validators.required, Validators.email])
+  });
 
-  constructor() {}
-
-  ngOnInit() {
-    this.forgotPasswordForm = new FormGroup({
-      email: new FormControl('', [Validators.required, Validators.email]),
-    });
-  }
+  auth = inject(Auth);
 
   get email() {
     return this.forgotPasswordForm.get('email');
   }
 
   onSubmit() {
-    this.authService
-      .forgotPassword(this.forgotPasswordForm.value.email)
-      .subscribe({
-        next: (res) => {
-          console.log(res);
-          this.router.navigate(['/login']);
-        },
-        error: (err) => {
-          console.error(err);
-        },
-      });
+    if (this.forgotPasswordForm.invalid) return;
+
+    const email = this.forgotPasswordForm.value.email!;
+
+    sendPasswordResetEmail(this.auth, email)
+      .then(() => alert('Reset email sent'))
+      .catch(err => console.error(err));
   }
 }

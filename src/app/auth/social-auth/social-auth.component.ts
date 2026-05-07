@@ -31,9 +31,8 @@ export class SocialAuthComponent implements OnInit {
         };
         
         // Use the auth service to handle the authentication
-        this.authService.handleSocialAuth(token, expiresIn, userData);
-        
-        // Redirect to expenses page
+        console.log('Social login not implemented');
+          // Redirect to expenses page
         this.router.navigate(['/expenses']);
       } else {
         this.router.navigate(['/login']);

@@ -8,7 +8,7 @@ import { Visit } from '../models/visit.model';
   providedIn: 'root',
 })
 export class TrackService {
-  apiURL = environment.trackingApiUrl;
+  apiURL = '';
 
   http = inject(HttpClient);
 

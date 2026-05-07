@@ -8,8 +8,7 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root',
 })
 export class InsightService {
-  private apiUrl = environment.apiUrl + '/insights';
-
+  private apiUrl = '';
   http = inject(HttpClient);
   authService = inject(AuthService);
 

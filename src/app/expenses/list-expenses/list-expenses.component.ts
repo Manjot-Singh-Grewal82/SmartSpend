@@ -1,217 +1,370 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { ExpenseService } from '../../core/services/expense.service';
 import {
-  FormBuilder,
-  FormGroup,
+  Component,
+  inject,
+  OnInit,
+  signal,
+  OnDestroy
+} from '@angular/core';
+
+import {
+  Router,
+  RouterLink
+} from '@angular/router';
+
+import {
+  DatePipe,
+  NgClass
+} from '@angular/common';
+
+import {
   ReactiveFormsModule,
-  Validators,
+  FormBuilder
 } from '@angular/forms';
-import { DatePipe, NgClass } from '@angular/common';
-import { Expense } from '../../core/models/expense.model';
-import { Subject, takeUntil } from 'rxjs';
-import { RouterLink } from '@angular/router';
+
+import { Subscription } from 'rxjs';
+
+import { ExpenseService } from '../../core/services/expense.service';
+
 @Component({
   selector: 'app-list-expenses',
-  imports: [ReactiveFormsModule, DatePipe, NgClass, RouterLink],
+
+  standalone: true,
+
+  imports: [
+    DatePipe,
+    NgClass,
+    RouterLink,
+    ReactiveFormsModule
+  ],
+
   templateUrl: './list-expenses.component.html',
+
   styleUrl: './list-expenses.component.scss',
 })
-export class ListExpensesComponent implements OnInit {
-  filterForm: FormGroup;
-  expenses = signal<Expense[]>([]);
-  filter = signal<string>('');
-  startDate = signal<string>('');
-  endDate = signal<string>('');
-  error = signal<string>('');
-  errorMsg = signal<string>('');
-  showConfirmDialog = signal<boolean>(false);
-  selectedExpenseId = signal<string>('');
-  isLoading = signal<boolean>(false);
-  minDate = signal<string>('');
-  totalAmount = signal<number>(0);
-  currentMonthTotal: number = 0;
-  averagePerDay: number = 0;
-  private unsubscribe$: Subject<void> = new Subject<void>();
 
-  private readonly DATE_FORMAT = 'T00:00:00.000Z';
-  private readonly END_DATE_FORMAT = 'T23:59:59.999Z';
+export class ListExpensesComponent
+implements OnInit, OnDestroy {
+
+  // =========================
+  // SIGNALS
+  // =========================
+
+  expenses = signal<any[]>([]);
+
+  totalAmount = signal<number>(0);
+
+  currentMonthTotal = 0;
+
+  averagePerDay = 0;
+
+  // =========================
+  // FILTER FORM
+  // =========================
+
+  filterForm = inject(FormBuilder).group({
+
+    filter: [''],
+
+    startDate: [''],
+
+    endDate: ['']
+  });
+
+  // =========================
+  // UI STATE
+  // =========================
+
+  filter = signal<string>('');
+
+  minDate = signal<string>('');
+
+  showConfirmDialog = signal<boolean>(false);
+
+  selectedExpenseId = signal<string>('');
+
+  isLoading = signal<boolean>(false);
+
+  errorMsg = signal<string>('');
+
+  // =========================
+  // SERVICES
+  // =========================
 
   expenseService = inject(ExpenseService);
+
   router = inject(Router);
-  fb = inject(FormBuilder);
 
-  constructor() {
-    this.filterForm = this.fb.group({
-      filter: [''],
-      startDate: ['', [Validators.required]],
-      endDate: ['', [Validators.required]],
-    });
-  }
+  expenseSubscription!: Subscription;
 
-  ngOnInit() {
+  // =========================
+  // INIT
+  // =========================
+
+  ngOnInit(): void {
+
     this.getExpenses();
   }
 
-  getExpenses(params: any = {}) {
+  // =========================
+  // LOAD EXPENSES
+  // =========================
+
+  getExpenses(): void {
+
     this.isLoading.set(true);
-    this.expenseService
-      .getExpenses(params)
-      .pipe(takeUntil(this.unsubscribe$))
+
+    this.expenseSubscription =
+      this.expenseService.getExpenses()
+
       .subscribe({
-        next: (res) => {
-          this.expenses.set(res.expenses);
-          this.totalAmount.set(res.totalAmount);
 
-          // Calculate current month total
+        next: (res: any[]) => {
+
+          console.log('✅ Expenses loaded:', res);
+
+          // update expenses
+          this.expenses.set(res);
+
+          // total amount
+          const total = res.reduce(
+
+            (sum, expense) =>
+              sum + Number(expense.amount || 0),
+
+            0
+          );
+
+          this.totalAmount.set(total);
+
           const now = new Date();
-          const currentMonth = now.getMonth();
-          const currentYear = now.getFullYear();
 
-          this.currentMonthTotal = res.expenses
-            .filter((expense: Expense) => {
-              const expenseDate = new Date(expense.date);
+          // current month total
+          this.currentMonthTotal = res
+
+            .filter(expense => {
+
+              const expenseDate =
+                new Date(expense.date);
+
               return (
-                expenseDate.getMonth() === currentMonth &&
-                expenseDate.getFullYear() === currentYear
+
+                expenseDate.getMonth() === now.getMonth()
+
+                &&
+
+                expenseDate.getFullYear() === now.getFullYear()
               );
             })
+
             .reduce(
-              (total: number, expense: Expense) => total + expense.amount,
+
+              (sum, expense) =>
+                sum + Number(expense.amount || 0),
+
               0
             );
 
-          // Calculate average per day
-          if (res.expenses.length > 0) {
-            const oldestExpense = new Date(
+          // average per day
+          if (res.length > 0) {
+
+            const oldestExpenseDate = new Date(
+
               Math.min(
-                ...res.expenses.map((e: Expense) => new Date(e.date).getTime())
+
+                ...res.map(expense =>
+
+                  new Date(expense.date).getTime()
+                )
               )
             );
-            const daysDiff = Math.ceil(
-              (now.getTime() - oldestExpense.getTime()) / (1000 * 60 * 60 * 24)
+
+            const daysDifference = Math.ceil(
+
+              (
+                now.getTime()
+
+                -
+
+                oldestExpenseDate.getTime()
+              )
+
+              /
+
+              (1000 * 60 * 60 * 24)
             );
+
             this.averagePerDay =
-              Math.round((res.totalAmount / (daysDiff || 1)) * 100) / 100;
+
+              Math.round(
+
+                (total / (daysDifference || 1)) * 100
+
+              ) / 100;
+
           } else {
+
             this.averagePerDay = 0;
           }
 
           this.isLoading.set(false);
         },
-        error: (err) => {
-          console.error(err);
+
+        error: (err: any) => {
+
+          console.log('🔥 FIREBASE ERROR:', err);
+
+          this.errorMsg.set(
+
+            err?.message ||
+
+            'Failed to load expenses'
+          );
+
           this.isLoading.set(false);
-          this.errorMsg.set(err?.error?.message || 'An error occurred');
-        },
+        }
       });
   }
 
-  onFilterChange() {
-    const filterValue = this.filterForm.get('filter')?.value;
-    this.filter.set(filterValue);
-    const params: any = {};
+  // =========================
+  // FILTERS
+  // =========================
 
-    switch (filterValue) {
-      case 'week':
-        this.setParams(params, 7, 'week');
-        break;
-      case 'month':
-        this.setParams(params, 30, 'month');
-        break;
-      case '3months':
-        this.setParams(params, 90, '3months');
-        break;
-      case '6months':
-        this.setParams(params, 180, '6months');
-        break;
-      case 'custom':
-        this.resetCustomFilter();
-        return;
-      default:
-        this.getExpenses();
-        return;
-    }
-    this.getExpenses(params);
+  onFilterChange(): void {
+
+    console.log('Filter changed');
   }
 
-  private setParams(params: any, days: number, period: string) {
-    params.startDate = this.getPastDate(days) + this.DATE_FORMAT;
-    params.endDate =
-      new Date().toISOString().split('T')[0] + this.END_DATE_FORMAT;
-    params.period = period;
+  applyCustomFilter(): void {
+
+    console.log('Custom filter applied');
   }
 
-  applyCustomFilter() {
-    const startDate = this.filterForm.get('startDate')?.value;
-    const endDate = this.filterForm.get('endDate')?.value;
-    if (startDate && endDate) {
-      const params = {
-        startDate: new Date(startDate).toISOString(),
-        endDate:
-          new Date(endDate).toISOString().split('T')[0] + this.END_DATE_FORMAT,
-        period: 'custom',
-      };
-      this.getExpenses(params);
-    }
+  onStartDateChange(): void {
+
+    this.minDate.set(
+
+      this.filterForm.get('startDate')?.value || ''
+    );
   }
 
-  resetCustomFilter() {
-    this.filterForm.get('startDate')?.reset();
-    this.filterForm.get('endDate')?.reset();
-    this.expenses.set([]);
-    this.totalAmount.set(0);
-  }
+  // =========================
+  // DELETE
+  // =========================
 
-  onStartDateChange() {
-    this.minDate.set(this.filterForm.get('startDate')?.value);
-  }
+  showDeleteConfirm(id: string): void {
 
-  getPastDate(days: number): string {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
-    return date.toISOString().split('T')[0];
-  }
+    this.selectedExpenseId.set(id);
 
-  editExpense(expense: any) {
-    this.router.navigate(['/edit-expense', expense._id]);
-  }
-
-  showDeleteConfirm(expenseId: string) {
-    this.selectedExpenseId.set(expenseId);
     this.showConfirmDialog.set(true);
   }
 
-  deleteExpense(id: string) {
-    this.expenseService
-      .deleteExpense(id)
-      .pipe(takeUntil(this.unsubscribe$))
-      .subscribe({
-        next: () => {
-          this.getExpenses();
-          this.showConfirmDialog.set(false);
-        },
-        error: (err) => {
-          console.error(err);
-          this.error.set(err?.error?.message || 'An error occurred');
-        },
+  deleteExpense(id: string): void {
+
+    const confirmed = confirm(
+
+      'Are you sure you want to delete this expense?'
+    );
+
+    if (!confirmed) return;
+
+    this.expenseService.deleteExpense(id)
+
+      .then(() => {
+
+        alert('✅ Expense deleted successfully');
+
+        this.getExpenses();
+
+        this.showConfirmDialog.set(false);
+      })
+
+      .catch((err: any) => {
+
+        console.error(err);
+
+        alert('❌ Failed to delete expense');
       });
   }
 
-  getCategoryClass(category: string): string {
-    const classes: { [key: string]: string } = {
-      Groceries: 'bg-green-100 text-green-800',
-      Leisure: 'bg-blue-100 text-blue-800',
-      Electronics: 'bg-yellow-100 text-yellow-800',
-      Utilities: 'bg-red-100 text-red-800',
-      Clothing: 'bg-purple-100 text-purple-800',
-      Health: 'bg-pink-100 text-pink-800',
-      Others: 'bg-gray-100 text-gray-800',
-    };
-    return classes[category] || 'bg-gray-100 text-gray-800';
+  // =========================
+  // EXPORT
+  // =========================
+
+  exportCSV(): void {
+
+    console.log('Export CSV clicked');
   }
 
-  exportCSV() {
-    this.expenseService.exportExpenses();
+  // =========================
+  // EDIT
+  // =========================
+
+  editExpense(expense: any): void {
+
+    if (!expense.id) {
+
+      console.error('Expense ID missing');
+
+      return;
+    }
+
+    this.router.navigate([
+
+      '/edit-expense',
+
+      expense.id
+    ]);
+  }
+
+  // =========================
+  // CATEGORY COLORS
+  // =========================
+
+  getCategoryClass(category: string): string {
+
+    const classes: { [key: string]: string } = {
+
+      Groceries:
+        'bg-green-100 text-green-800',
+
+      Leisure:
+        'bg-blue-100 text-blue-800',
+
+      Electronics:
+        'bg-yellow-100 text-yellow-800',
+
+      Utilities:
+        'bg-red-100 text-red-800',
+
+      Clothing:
+        'bg-purple-100 text-purple-800',
+
+      Health:
+        'bg-pink-100 text-pink-800',
+
+      Others:
+        'bg-gray-100 text-gray-800',
+    };
+
+    return (
+
+      classes[category]
+
+      ||
+
+      'bg-gray-100 text-gray-800'
+    );
+  }
+
+  // =========================
+  // DESTROY
+  // =========================
+
+  ngOnDestroy(): void {
+
+    if (this.expenseSubscription) {
+
+      this.expenseSubscription.unsubscribe();
+    }
   }
 }

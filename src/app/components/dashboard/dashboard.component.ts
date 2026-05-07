@@ -6,131 +6,213 @@ import {
   AfterViewInit,
   ElementRef,
 } from '@angular/core';
+
+import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
+
 import { AdminService } from '../../core/services/admin.service';
-import { NgxChartsModule } from '@swimlane/ngx-charts';
+
 import { FormsModule } from '@angular/forms';
-import { Color, ScaleType } from '@swimlane/ngx-charts';
 
 @Component({
   selector: 'app-dashboard',
+
   standalone: true,
-  imports: [RouterModule, NgxChartsModule, FormsModule],
+
+  imports: [
+    CommonModule,
+    RouterModule,
+    FormsModule
+  ],
+
   templateUrl: './dashboard.component.html',
+
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent implements OnInit, AfterViewInit {
+
+export class DashboardComponent
+implements OnInit, AfterViewInit {
+
   adminService = inject(AdminService);
+
   elementRef = inject(ElementRef);
 
-  // Stats
+  // =========================
+  // STATS
+  // =========================
+
   stats: any = {};
 
-  // Charts data
   categoryChartData: any[] = [];
 
-  // UI state
+  // =========================
+  // LOADING
+  // =========================
+
   loading = {
     stats: false,
   };
 
-  // Chart dimensions
+  // =========================
+  // RESPONSIVE
+  // =========================
+
   containerWidth = 700;
+
   containerHeight = 400;
 
-  // Chart options
-  showXAxis = true;
-  showYAxis = true;
-  gradient = false;
-  showLegend = false;
-  showXAxisLabel = true;
-  xAxisLabel = 'Category';
-  showYAxisLabel = true;
-  yAxisLabel = 'Amount';
-  colorScheme: Color = {
-    name: 'custom',
-    selectable: true,
-    group: ScaleType.Ordinal,
-    domain: [
-      '#5AA454',
-      '#A10A28',
-      '#C7B42C',
-      '#AAAAAA',
-      '#8A2BE2',
-      '#FF5733',
-      '#4682B4',
-    ],
-  };
+  // =========================
+  // INIT
+  // =========================
 
   ngOnInit(): void {
+
     this.loadStats();
   }
 
-  ngAfterViewInit() {
-    // Set chart container dimensions based on the container size
+  ngAfterViewInit(): void {
+
     this.updateChartDimensions();
   }
 
+  // =========================
+  // RESPONSIVE METHODS
+  // =========================
+
   @HostListener('window:resize')
-  updateChartDimensions() {
+
+  updateChartDimensions(): void {
+
     const chartContainer =
-      this.elementRef.nativeElement.querySelector('.chart-container');
+
+      this.elementRef.nativeElement.querySelector(
+        '.chart-container'
+      );
+
     if (chartContainer) {
-      this.containerWidth = chartContainer.clientWidth;
+
+      this.containerWidth =
+        chartContainer.clientWidth;
+
       this.containerHeight = Math.min(
+
         400,
-        Math.max(300, this.containerWidth * 0.5)
+
+        Math.max(
+          300,
+          this.containerWidth * 0.5
+        )
       );
     }
   }
 
   @HostListener('window:resize')
-  onResize() {
-    // Force chart redraw on window resize
-    this.categoryChartData = [...this.categoryChartData];
+
+  onResize(): void {
+
+    this.categoryChartData = [
+
+      ...this.categoryChartData
+    ];
   }
+
+  // =========================
+  // LOAD STATS
+  // =========================
 
   loadStats(): void {
+
     this.loading.stats = true;
-    this.adminService.getStats().subscribe({
-      next: (data) => {
-        this.stats = data;
 
-        // Transform category distribution for chart
-        this.categoryChartData = this.stats.categoryDistribution.map(
-          (item: any) => {
-            return {
-              name: item._id,
-              value: item.total,
-            };
+    this.adminService.getStats()
+
+      .subscribe({
+
+        next: (data: any) => {
+
+          console.log('Dashboard stats:', data);
+
+          this.stats = data || {};
+
+          // safe fallback
+          if (this.stats?.categoryDistribution) {
+
+            this.categoryChartData =
+
+              this.stats.categoryDistribution.map(
+
+                (item: any) => {
+
+                  return {
+
+                    name: item._id || 'Unknown',
+
+                    value: item.total || 0,
+                  };
+                }
+              );
+
+          } else {
+
+            this.categoryChartData = [];
           }
-        );
 
-        this.loading.stats = false;
-        // Update chart dimensions after data is loaded
-        setTimeout(() => this.updateChartDimensions(), 0);
-      },
-      error: (error) => {
-        console.error('Error loading stats:', error);
-        this.loading.stats = false;
-      },
-    });
+          this.loading.stats = false;
+
+          setTimeout(() => {
+
+            this.updateChartDimensions();
+
+          }, 0);
+        },
+
+        error: (error: any) => {
+
+          console.error(
+            'Error loading stats:',
+            error
+          );
+
+          this.loading.stats = false;
+        },
+      });
   }
 
-  // Format currency
+  // =========================
+  // FORMATTERS
+  // =========================
+
   formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
+
+    return new Intl.NumberFormat(
+
+      'en-IN',
+
+      {
+        style: 'currency',
+
+        currency: 'INR',
+      }
+
+    ).format(amount || 0);
   }
 
-  // Format date
   formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+
+    return new Date(dateString)
+
+      .toLocaleDateString(
+
+        'en-US',
+
+        {
+          year: 'numeric',
+
+          month: 'short',
+
+          day: 'numeric',
+        }
+      );
   }
 }
