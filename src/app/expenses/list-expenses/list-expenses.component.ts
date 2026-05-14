@@ -18,12 +18,21 @@ import {
 
 import {
   ReactiveFormsModule,
-  FormBuilder
+  FormBuilder,
+  FormsModule
 } from '@angular/forms';
 
 import { Subscription } from 'rxjs';
 
 import { ExpenseService } from '../../core/services/expense.service';
+
+// ✅ EXPORT LIBRARIES
+
+import * as XLSX from 'xlsx';
+
+import { saveAs } from 'file-saver';
+
+import jsPDF from 'jspdf';
 
 @Component({
   selector: 'app-list-expenses',
@@ -34,7 +43,8 @@ import { ExpenseService } from '../../core/services/expense.service';
     DatePipe,
     NgClass,
     RouterLink,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    FormsModule
   ],
 
   templateUrl: './list-expenses.component.html',
@@ -51,11 +61,15 @@ implements OnInit, OnDestroy {
 
   expenses = signal<any[]>([]);
 
+  filteredExpenses = signal<any[]>([]);
+
   totalAmount = signal<number>(0);
 
   currentMonthTotal = 0;
 
   averagePerDay = 0;
+
+  searchText = '';
 
   // =========================
   // FILTER FORM
@@ -120,12 +134,10 @@ implements OnInit, OnDestroy {
 
         next: (res: any[]) => {
 
-          console.log('✅ Expenses loaded:', res);
-
-          // update expenses
           this.expenses.set(res);
 
-          // total amount
+          this.filteredExpenses.set(res);
+
           const total = res.reduce(
 
             (sum, expense) =>
@@ -138,7 +150,8 @@ implements OnInit, OnDestroy {
 
           const now = new Date();
 
-          // current month total
+          // CURRENT MONTH
+
           this.currentMonthTotal = res
 
             .filter(expense => {
@@ -164,7 +177,8 @@ implements OnInit, OnDestroy {
               0
             );
 
-          // average per day
+          // AVERAGE
+
           if (res.length > 0) {
 
             const oldestExpenseDate = new Date(
@@ -211,7 +225,7 @@ implements OnInit, OnDestroy {
 
         error: (err: any) => {
 
-          console.log('🔥 FIREBASE ERROR:', err);
+          console.error(err);
 
           this.errorMsg.set(
 
@@ -226,17 +240,135 @@ implements OnInit, OnDestroy {
   }
 
   // =========================
-  // FILTERS
+  // FILTER
+  // =========================
+
+  filterExpenses(): void {
+
+    let filtered = this.expenses();
+
+    // SEARCH
+
+    if (this.searchText.trim()) {
+
+      filtered = filtered.filter(
+
+        expense =>
+
+          expense.title
+            ?.toLowerCase()
+            .includes(
+
+              this.searchText
+                .toLowerCase()
+            )
+      );
+    }
+
+    const filterValue =
+
+      this.filterForm.get('filter')?.value;
+
+    const now = new Date();
+
+    // WEEK
+
+    if (filterValue === 'week') {
+
+      const weekAgo = new Date();
+
+      weekAgo.setDate(now.getDate() - 7);
+
+      filtered = filtered.filter(
+
+        expense =>
+
+          new Date(expense.date) >= weekAgo
+      );
+    }
+
+    // MONTH
+
+    if (filterValue === 'month') {
+
+      filtered = filtered.filter(
+
+        expense => {
+
+          const expenseDate =
+
+            new Date(expense.date);
+
+          return (
+
+            expenseDate.getMonth()
+
+            ===
+
+            now.getMonth()
+
+            &&
+
+            expenseDate.getFullYear()
+
+            ===
+
+            now.getFullYear()
+          );
+        }
+      );
+    }
+
+    // CUSTOM
+
+    if (filterValue === 'custom') {
+
+      const startDate =
+
+        this.filterForm.get('startDate')?.value;
+
+      const endDate =
+
+        this.filterForm.get('endDate')?.value;
+
+      if (startDate && endDate) {
+
+        filtered = filtered.filter(
+
+          expense => {
+
+            const expenseDate =
+
+              new Date(expense.date);
+
+            return (
+
+              expenseDate >= new Date(startDate)
+
+              &&
+
+              expenseDate <= new Date(endDate)
+            );
+          }
+        );
+      }
+    }
+
+    this.filteredExpenses.set(filtered);
+  }
+
+  // =========================
+  // FILTER EVENTS
   // =========================
 
   onFilterChange(): void {
 
-    console.log('Filter changed');
+    this.filterExpenses();
   }
 
   applyCustomFilter(): void {
 
-    console.log('Custom filter applied');
+    this.filterExpenses();
   }
 
   onStartDateChange(): void {
@@ -251,18 +383,11 @@ implements OnInit, OnDestroy {
   // DELETE
   // =========================
 
-  showDeleteConfirm(id: string): void {
-
-    this.selectedExpenseId.set(id);
-
-    this.showConfirmDialog.set(true);
-  }
-
   deleteExpense(id: string): void {
 
     const confirmed = confirm(
 
-      'Are you sure you want to delete this expense?'
+      'Delete this expense?'
     );
 
     if (!confirmed) return;
@@ -271,28 +396,159 @@ implements OnInit, OnDestroy {
 
       .then(() => {
 
-        alert('✅ Expense deleted successfully');
+        alert('✅ Expense deleted');
 
-        this.getExpenses();
-
-        this.showConfirmDialog.set(false);
       })
 
       .catch((err: any) => {
 
         console.error(err);
 
-        alert('❌ Failed to delete expense');
+        alert('❌ Failed to delete');
       });
   }
 
   // =========================
-  // EXPORT
+  // CSV EXPORT
   // =========================
 
   exportCSV(): void {
 
-    console.log('Export CSV clicked');
+    const expenses = this.filteredExpenses();
+
+    if (expenses.length === 0) {
+
+      alert('No expenses to export');
+
+      return;
+    }
+
+    const exportData = expenses.map(
+
+      expense => ({
+
+        Title:
+          expense.title,
+
+        Amount:
+          expense.amount,
+
+        Category:
+          expense.category,
+
+        Date:
+          expense.date,
+      })
+    );
+
+    const worksheet = XLSX.utils.json_to_sheet(
+      exportData
+    );
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+
+      workbook,
+
+      worksheet,
+
+      'Expenses'
+    );
+
+    const excelBuffer = XLSX.write(
+
+      workbook,
+
+      {
+        bookType: 'xlsx',
+
+        type: 'array',
+      }
+    );
+
+    const fileData = new Blob(
+
+      [excelBuffer],
+
+      {
+        type:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8',
+      }
+    );
+
+    saveAs(
+      fileData,
+      'smartspend-expenses.xlsx'
+    );
+  }
+
+  // =========================
+  // PDF EXPORT
+  // =========================
+
+  exportPDF(): void {
+
+    const expenses = this.filteredExpenses();
+
+    if (expenses.length === 0) {
+
+      alert('No expenses to export');
+
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(20);
+
+    doc.text(
+      'SmartSpend Expense Report',
+      20,
+      20
+    );
+
+    let y = 40;
+
+    expenses.forEach((expense) => {
+
+      doc.text(
+        `Title: ${expense.title}`,
+        20,
+        y
+      );
+
+      doc.text(
+        `Amount: ₹${expense.amount}`,
+        20,
+        y + 8
+      );
+
+      doc.text(
+        `Category: ${expense.category}`,
+        20,
+        y + 16
+      );
+
+      doc.text(
+        `Date: ${expense.date}`,
+        20,
+        y + 24
+      );
+
+      y += 40;
+
+      if (y > 260) {
+
+        doc.addPage();
+
+        y = 20;
+      }
+    });
+
+    doc.save(
+      'smartspend-report.pdf'
+    );
   }
 
   // =========================
@@ -300,13 +556,6 @@ implements OnInit, OnDestroy {
   // =========================
 
   editExpense(expense: any): void {
-
-    if (!expense.id) {
-
-      console.error('Expense ID missing');
-
-      return;
-    }
 
     this.router.navigate([
 

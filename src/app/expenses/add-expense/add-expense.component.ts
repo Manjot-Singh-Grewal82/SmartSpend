@@ -1,6 +1,9 @@
 import { Component, inject } from '@angular/core';
 
-import { Router, RouterLink } from '@angular/router';
+import {
+  Router,
+  RouterLink
+} from '@angular/router';
 
 import {
   FormControl,
@@ -9,9 +12,13 @@ import {
   Validators,
 } from '@angular/forms';
 
-import { ExpenseService } from '../../core/services/expense.service';
-
 import { CommonModule } from '@angular/common';
+
+import { ExpenseService }
+from '../../core/services/expense.service';
+
+import { AiCategoryService }
+from '../../core/services/ai-category.service';
 
 @Component({
   selector: 'app-add-expense',
@@ -24,9 +31,11 @@ import { CommonModule } from '@angular/common';
     RouterLink
   ],
 
-  templateUrl: './add-expense.component.html',
+  templateUrl:
+    './add-expense.component.html',
 
-  styleUrl: './add-expense.component.scss'
+  styleUrl:
+    './add-expense.component.scss'
 })
 
 export class AddExpenseComponent {
@@ -65,19 +74,68 @@ export class AddExpenseComponent {
 
   error = '';
 
+  detectedCategory = '';
+
   // =========================
   // SERVICES
   // =========================
 
-  expenseService = inject(ExpenseService);
+  expenseService =
+    inject(ExpenseService);
 
-  router = inject(Router);
+  aiCategoryService =
+    inject(AiCategoryService);
+
+  router =
+    inject(Router);
+
+  // =========================
+  // CONSTRUCTOR
+  // =========================
+
+  constructor() {
+
+    // =========================
+    // AI CATEGORY DETECTION
+    // =========================
+
+    this.expenseForm
+
+      .get('title')
+
+      ?.valueChanges
+
+      .subscribe((value: any) => {
+
+        if (!value) {
+
+          this.detectedCategory = '';
+
+          return;
+        }
+
+        const detected =
+
+          this.aiCategoryService
+            .detectCategory(value);
+
+        this.detectedCategory =
+          detected;
+
+        // auto-fill category
+
+        this.expenseForm.patchValue({
+
+          category: detected
+        });
+      });
+  }
 
   // =========================
   // SUBMIT
   // =========================
 
-  onSubmit() {
+  onSubmit(): void {
 
     // validate form
 
@@ -93,11 +151,14 @@ export class AddExpenseComponent {
 
     this.error = '';
 
-    // payload
+    // =========================
+    // PAYLOAD
+    // =========================
 
     const expenseData = {
 
-      title: this.expenseForm.value.title,
+      title:
+        this.expenseForm.value.title,
 
       amount: Number(
         this.expenseForm.value.amount
@@ -110,7 +171,9 @@ export class AddExpenseComponent {
         this.expenseForm.value.date,
     };
 
-    // save to Firebase
+    // =========================
+    // SAVE TO FIREBASE
+    // =========================
 
     this.expenseService
 
@@ -126,7 +189,9 @@ export class AddExpenseComponent {
           '✅ Expense Added Successfully'
         );
 
-        // reset form
+        // =========================
+        // RESET FORM
+        // =========================
 
         this.expenseForm.reset({
 
@@ -142,12 +207,16 @@ export class AddExpenseComponent {
               .split('T')[0]
         });
 
+        this.detectedCategory = '';
+
         this.isLoading = false;
 
-        // redirect
+        // =========================
+        // REDIRECT TO DASHBOARD
+        // =========================
 
         this.router.navigate([
-          '/expenses'
+          '/dashboard'
         ]);
       })
 

@@ -1,145 +1,275 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { InsightService } from '../../core/services/insight.service';
+import {
+  Component,
+  OnInit,
+  inject
+} from '@angular/core';
+
+import { CommonModule }
+from '@angular/common';
+
+import { FormsModule }
+from '@angular/forms';
+
+import {
+  RouterLink
+} from '@angular/router';
+
+import {
+  BaseChartDirective
+} from 'ng2-charts';
+
+import {
+  ChartOptions
+} from 'chart.js';
+
+import { ExpenseService }
+from '../../core/services/expense.service';
 
 @Component({
   selector: 'app-insights',
-  standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
-  templateUrl: './insights.component.html',
-  styleUrl: './insights.component.scss',
-})
-export class InsightsComponent implements OnInit {
-  insightService = inject(InsightService);
-  fb = inject(FormBuilder);
 
-  insights = signal<any>(null);
-  isLoading = signal<boolean>(false);
-  error = signal<string | null>(null);
-  filterForm: FormGroup;
-  categories = [
-    'All Categories',
-    'Groceries',
-    'Leisure',
-    'Electronics',
-    'Utilities',
-    'Clothing',
-    'Health',
-    'Others',
+  standalone: true,
+
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    BaseChartDirective
+  ],
+
+  templateUrl:
+    './insights.component.html',
+
+  styleUrls:
+    ['./insights.component.scss']
+})
+
+export class InsightsComponent
+implements OnInit {
+
+  expenseService =
+    inject(ExpenseService);
+
+  expenses: any[] = [];
+
+  filteredExpenses: any[] = [];
+
+  // =========================
+  // FILTERS
+  // =========================
+
+  selectedCategory = '';
+
+  startDate = '';
+
+  endDate = '';
+
+  // =========================
+  // ANALYTICS
+  // =========================
+
+  totalAmount = 0;
+
+  averageExpense = 0;
+
+  highestExpense = 0;
+
+  lowestExpense = 0;
+
+  totalTransactions = 0;
+
+  // =========================
+  // CHART
+  // =========================
+
+  pieChartLabels: string[] = [];
+
+  pieChartDatasets = [
+    {
+      data: [] as number[]
+    }
   ];
 
-  constructor() {
-    this.filterForm = this.fb.group({
-      startDate: [''],
-      endDate: [''],
-      category: ['All Categories'],
-    });
-  }
+  pieChartType: 'pie' = 'pie';
+
+  pieChartOptions:
+    ChartOptions<'pie'> = {
+
+      responsive: true,
+
+      plugins: {
+        legend: {
+          position: 'top'
+        }
+      }
+    };
+
+  // =========================
+  // INIT
+  // =========================
 
   ngOnInit(): void {
-    this.getInsights();
+
+    this.loadExpenses();
   }
 
-  getInsights(): void {
-    this.isLoading.set(true);
-    this.error.set(null);
+  // =========================
+  // LOAD DATA
+  // =========================
 
-    const filters: any = {};
-    const startDate = this.filterForm.get('startDate')?.value;
-    const endDate = this.filterForm.get('endDate')?.value;
-    const category = this.filterForm.get('category')?.value;
+  loadExpenses(): void {
 
-    if (startDate) {
-      filters.startDate = startDate;
-    }
+    this.expenseService
 
-    if (endDate) {
-      filters.endDate = endDate;
-    }
+      .getExpenses()
 
-    if (category && category !== 'All Categories') {
-      filters.category = category;
-    }
+      .subscribe((data: any[]) => {
 
-    this.insightService.getAIInsights(filters).subscribe({
-      next: (data) => {
-        this.insights.set(data);
-        this.isLoading.set(false);
-      },
-      error: (err) => {
-        console.error('Error loading insights:', err);
-        this.error.set(
-          err?.error?.message || 'An error occurred while loading insights'
-        );
-        this.isLoading.set(false);
-      },
-    });
+        this.expenses = data;
+
+        this.filteredExpenses =
+          data;
+
+        this.calculateInsights();
+      });
   }
+
+  // =========================
+  // APPLY FILTERS
+  // =========================
 
   applyFilters(): void {
-    this.getInsights();
+
+    this.filteredExpenses =
+      this.expenses.filter(
+        (expense) => {
+
+          const expenseDate =
+            new Date(expense.date);
+
+          const start =
+            this.startDate
+              ? new Date(this.startDate)
+              : null;
+
+          const end =
+            this.endDate
+              ? new Date(this.endDate)
+              : null;
+
+          const categoryMatch =
+            this.selectedCategory
+              ? expense.category ===
+                this.selectedCategory
+              : true;
+
+          const startMatch =
+            start
+              ? expenseDate >= start
+              : true;
+
+          const endMatch =
+            end
+              ? expenseDate <= end
+              : true;
+
+          return (
+            categoryMatch &&
+            startMatch &&
+            endMatch
+          );
+        }
+      );
+
+    this.calculateInsights();
   }
+
+  // =========================
+  // RESET FILTERS
+  // =========================
 
   resetFilters(): void {
-    this.filterForm.reset({
-      startDate: '',
-      endDate: '',
-      category: 'All Categories',
-    });
-    this.getInsights();
+
+    this.selectedCategory = '';
+
+    this.startDate = '';
+
+    this.endDate = '';
+
+    this.filteredExpenses =
+      this.expenses;
+
+    this.calculateInsights();
   }
 
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  }
+  // =========================
+  // CALCULATE ANALYTICS
+  // =========================
 
-  // Helper methods to handle the simplified response structure
-  getMonthlySpendingData(): any[] {
-    if (!this.insights() || !this.insights().insights?.trends) {
-      return [];
-    }
-    return this.insights().insights.trends;
-  }
+  calculateInsights(): void {
 
-  getMonthSpendingPercentage(monthData: any): string {
-    if (!this.insights() || !this.insights().insights?.trends) {
-      return '0%';
-    }
+    const amounts =
+      this.filteredExpenses.map(
+        (e) => Number(e.amount)
+      );
 
-    const trends = this.insights().insights.trends;
-    const maxAmount = Math.max(...trends.map((t: any) => t.amount));
-    
-    if (!maxAmount) return '0%';
-    return (monthData.amount / maxAmount) * 100 + '%';
-  }
+    this.totalTransactions =
+      amounts.length;
 
-  getCategoryPercentage(category: any): string {
-    if (!this.insights() || !this.insights().insights?.topCategories || this.insights().insights.topCategories.length === 0) {
-      return '0%';
-    }
+    this.totalAmount =
+      amounts.reduce(
+        (a, b) => a + b,
+        0
+      );
 
-    const topCategories = this.insights().insights.topCategories;
-    const maxAmount = topCategories[0].amount;
-    
-    if (!maxAmount) return '0%';
-    return (category.amount / maxAmount) * 100 + '%';
-  }
+    this.averageExpense =
+      amounts.length
+        ? this.totalAmount /
+          amounts.length
+        : 0;
 
-  getSuggestions(): string[] {
-    if (!this.insights() || !this.insights().insights?.suggestions) {
-      return [];
-    }
-    return this.insights().insights.suggestions;
-  }
+    this.highestExpense =
+      amounts.length
+        ? Math.max(...amounts)
+        : 0;
 
-  getBudgetHealth(): string {
-    if (!this.insights() || !this.insights().insights?.budgetHealth) {
-      return '';
-    }
-    return this.insights().insights.budgetHealth;
+    this.lowestExpense =
+      amounts.length
+        ? Math.min(...amounts)
+        : 0;
+
+    // =====================
+    // CATEGORY CHART
+    // =====================
+
+    const categoryMap: any = {};
+
+    this.filteredExpenses.forEach(
+      (expense) => {
+
+        const category =
+          expense.category ||
+          'Others';
+
+        if (!categoryMap[category]) {
+
+          categoryMap[category] = 0;
+        }
+
+        categoryMap[category] +=
+          Number(expense.amount);
+      }
+    );
+
+    this.pieChartLabels =
+      Object.keys(categoryMap);
+
+    this.pieChartDatasets = [
+      {
+        data: Object.values(
+          categoryMap
+        ) as number[]
+      }
+    ];
   }
 }

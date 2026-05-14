@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { EditExpenseComponent } from './expenses/edit-expense/edit-expense.component';
+
 import { AddExpenseComponent } from './expenses/add-expense/add-expense.component';
 
 import { ExpenseResolverService } from './core/services/expense-resolver.service';
@@ -13,10 +14,12 @@ export const routes: Routes = [
 
   {
     path: '',
+
     loadComponent: () =>
-      import('./components/home/home.component').then(
-        (m) => m.HomeComponent
-      ),
+
+      import('./components/home/home.component')
+
+        .then((m) => m.HomeComponent),
   },
 
   // =========================
@@ -25,10 +28,12 @@ export const routes: Routes = [
 
   {
     path: 'dashboard',
+
     loadComponent: () =>
-      import('./components/dashboard/dashboard.component').then(
-        (m) => m.DashboardComponent
-      ),
+
+      import('./components/dashboard/dashboard.component')
+
+        .then((m) => m.DashboardComponent),
   },
 
   // =========================
@@ -39,9 +44,10 @@ export const routes: Routes = [
     path: 'users',
 
     loadComponent: () =>
-      import('./users/user-management/user-management.component').then(
-        (m) => m.UserManagementComponent
-      ),
+
+      import('./users/user-management/user-management.component')
+
+        .then((m) => m.UserManagementComponent),
 
     children: [
 
@@ -49,18 +55,20 @@ export const routes: Routes = [
         path: '',
 
         loadComponent: () =>
-          import('./users/user-list/user-list.component').then(
-            (m) => m.UserListComponent
-          ),
+
+          import('./users/user-list/user-list.component')
+
+            .then((m) => m.UserListComponent),
       },
 
       {
         path: ':id',
 
         loadComponent: () =>
-          import('./users/user-details/user-details.component').then(
-            (m) => m.UserDetailsComponent
-          ),
+
+          import('./users/user-details/user-details.component')
+
+            .then((m) => m.UserDetailsComponent),
       },
     ],
   },
@@ -73,59 +81,57 @@ export const routes: Routes = [
     path: 'login',
 
     loadComponent: () =>
-      import('./auth/login/login.component').then(
-        (m) => m.LoginComponent
-      ),
+
+      import('./auth/login/login.component')
+
+        .then((m) => m.LoginComponent),
   },
 
   {
     path: 'signup',
 
     loadComponent: () =>
-      import('./auth/signup/signup.component').then(
-        (m) => m.SignupComponent
-      ),
+
+      import('./auth/signup/signup.component')
+
+        .then((m) => m.SignupComponent),
   },
 
   {
     path: 'forgot-password',
 
     loadComponent: () =>
-      import('./auth/forgot-password/forgot-password.component').then(
-        (m) => m.ForgotPasswordComponent
-      ),
+
+      import('./auth/forgot-password/forgot-password.component')
+
+        .then((m) => m.ForgotPasswordComponent),
   },
 
   {
     path: 'reset-password/:token',
 
     loadComponent: () =>
-      import('./auth/reset-password/reset-password.component').then(
-        (m) => m.ResetPasswordComponent
-      ),
+
+      import('./auth/reset-password/reset-password.component')
+
+        .then((m) => m.ResetPasswordComponent),
   },
 
   {
     path: 'auth/social',
 
     loadComponent: () =>
-      import('./auth/social-auth/social-auth.component').then(
-        (m) => m.SocialAuthComponent
-      ),
+
+      import('./auth/social-auth/social-auth.component')
+
+        .then((m) => m.SocialAuthComponent),
   },
 
   // =========================
   // EXPENSES
   // =========================
 
-  {
-    path: 'expenses',
-
-    loadComponent: () =>
-      import('./expenses/list-expenses/list-expenses.component').then(
-        (m) => m.ListExpensesComponent
-      ),
-  },
+  
 
   {
     path: 'add-expense',
@@ -151,31 +157,38 @@ export const routes: Routes = [
     path: 'insights',
 
     loadComponent: () =>
-      import('./components/insights/insights.component').then(
-        (m) => m.InsightsComponent
-      ),
+
+      import('./components/insights/insights.component')
+
+        .then((m) => m.InsightsComponent),
   },
 
   // =========================
-  // LEGAL PAGES
+  // PRIVACY POLICY
   // =========================
 
   {
     path: 'privacy-policy',
 
     loadComponent: () =>
-      import('./pages/privacy-policy/privacy-policy.component').then(
-        (m) => m.PrivacyPolicyComponent
-      ),
+
+      import('./pages/privacy-policy/privacy-policy.component')
+
+        .then((m) => m.PrivacyPolicyComponent),
   },
+
+  // =========================
+  // TERMS
+  // =========================
 
   {
     path: 'terms-of-service',
 
     loadComponent: () =>
-      import('./pages/terms-of-service/terms-of-service.component').then(
-        (m) => m.TermsOfServiceComponent
-      ),
+
+      import('./pages/terms-of-service/terms-of-service.component')
+
+        .then((m) => m.TermsOfServiceComponent),
   },
 
   // =========================

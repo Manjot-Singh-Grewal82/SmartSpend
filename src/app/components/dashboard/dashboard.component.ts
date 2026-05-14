@@ -1,19 +1,30 @@
 import {
   Component,
   OnInit,
-  inject,
-  HostListener,
-  AfterViewInit,
-  ElementRef,
+  inject
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
-import { RouterModule } from '@angular/router';
+import {
+  FormsModule
+} from '@angular/forms';
 
-import { AdminService } from '../../core/services/admin.service';
+import {
+  RouterLink
+} from '@angular/router';
 
-import { FormsModule } from '@angular/forms';
+import {
+  ChartOptions
+} from 'chart.js';
+
+import {
+  BaseChartDirective
+} from 'ng2-charts';
+
+import {
+  ExpenseService
+} from '../../core/services/expense.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -22,45 +33,78 @@ import { FormsModule } from '@angular/forms';
 
   imports: [
     CommonModule,
-    RouterModule,
-    FormsModule
+    FormsModule,
+    RouterLink,
+    BaseChartDirective
   ],
 
   templateUrl: './dashboard.component.html',
 
-  styleUrls: ['./dashboard.component.scss'],
+  styleUrls: ['./dashboard.component.scss']
 })
 
 export class DashboardComponent
-implements OnInit, AfterViewInit {
-
-  adminService = inject(AdminService);
-
-  elementRef = inject(ElementRef);
+implements OnInit {
 
   // =========================
-  // STATS
+  // SERVICES
   // =========================
 
-  stats: any = {};
-
-  categoryChartData: any[] = [];
-
-  // =========================
-  // LOADING
-  // =========================
-
-  loading = {
-    stats: false,
-  };
+  expenseService =
+    inject(ExpenseService);
 
   // =========================
-  // RESPONSIVE
+  // DATA
   // =========================
 
-  containerWidth = 700;
+  expenses: any[] = [];
 
-  containerHeight = 400;
+  filteredExpenses: any[] = [];
+
+  searchText = '';
+
+  totalExpenses = 0;
+
+  totalAmount = 0;
+
+  monthlyAmount = 0;
+
+  // =========================
+  // BUDGET
+  // =========================
+
+  budget = 10000;
+
+  remainingBudget = 0;
+
+  budgetPercentage = 0;
+
+  // =========================
+  // PIE CHART
+  // =========================
+
+  pieChartLabels: string[] = [];
+
+  pieChartDatasets = [
+    {
+      data: [] as number[],
+    },
+  ];
+
+  pieChartType: 'pie' = 'pie';
+
+  pieChartOptions:
+    ChartOptions<'pie'> = {
+
+      responsive: true,
+
+      plugins: {
+
+        legend: {
+          position: 'bottom',
+        },
+      },
+    };
 
   // =========================
   // INIT
@@ -68,151 +112,217 @@ implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
 
-    this.loadStats();
-  }
-
-  ngAfterViewInit(): void {
-
-    this.updateChartDimensions();
+    this.loadDashboard();
   }
 
   // =========================
-  // RESPONSIVE METHODS
+  // LOAD DASHBOARD
   // =========================
 
-  @HostListener('window:resize')
+  loadDashboard(): void {
 
-  updateChartDimensions(): void {
+    this.expenseService
 
-    const chartContainer =
-
-      this.elementRef.nativeElement.querySelector(
-        '.chart-container'
-      );
-
-    if (chartContainer) {
-
-      this.containerWidth =
-        chartContainer.clientWidth;
-
-      this.containerHeight = Math.min(
-
-        400,
-
-        Math.max(
-          300,
-          this.containerWidth * 0.5
-        )
-      );
-    }
-  }
-
-  @HostListener('window:resize')
-
-  onResize(): void {
-
-    this.categoryChartData = [
-
-      ...this.categoryChartData
-    ];
-  }
-
-  // =========================
-  // LOAD STATS
-  // =========================
-
-  loadStats(): void {
-
-    this.loading.stats = true;
-
-    this.adminService.getStats()
+      .getExpenses()
 
       .subscribe({
 
-        next: (data: any) => {
+        next: (data: any[]) => {
 
-          console.log('Dashboard stats:', data);
+          this.expenses = data;
 
-          this.stats = data || {};
+          this.filteredExpenses =
+            data;
 
-          // safe fallback
-          if (this.stats?.categoryDistribution) {
+          // =====================
+          // TOTALS
+          // =====================
 
-            this.categoryChartData =
+          this.totalExpenses =
+            data.length;
 
-              this.stats.categoryDistribution.map(
+          this.totalAmount =
 
-                (item: any) => {
+            data.reduce(
 
-                  return {
+              (sum, expense) =>
 
-                    name: item._id || 'Unknown',
+                sum +
+                Number(
+                  expense.amount || 0
+                ),
 
-                    value: item.total || 0,
-                  };
-                }
+              0
+            );
+
+          // =====================
+          // MONTHLY TOTAL
+          // =====================
+
+          const currentMonth =
+            new Date().getMonth();
+
+          this.monthlyAmount =
+
+            data
+
+              .filter((expense) => {
+
+                const expenseMonth =
+
+                  new Date(
+                    expense.date
+                  ).getMonth();
+
+                return (
+                  expenseMonth ===
+                  currentMonth
+                );
+              })
+
+              .reduce(
+
+                (sum, expense) =>
+
+                  sum +
+                  Number(
+                    expense.amount || 0
+                  ),
+
+                0
               );
 
-          } else {
+          // =====================
+          // BUDGET
+          // =====================
 
-            this.categoryChartData = [];
-          }
+          this.updateBudget();
 
-          this.loading.stats = false;
+          // =====================
+          // CATEGORY CHART
+          // =====================
 
-          setTimeout(() => {
+          const categoryMap: any = {};
 
-            this.updateChartDimensions();
+          data.forEach((expense) => {
 
-          }, 0);
+            const category =
+
+              expense.category ||
+              'Others';
+
+            if (!categoryMap[category]) {
+
+              categoryMap[category] = 0;
+            }
+
+            categoryMap[category] +=
+
+              Number(
+                expense.amount || 0
+              );
+          });
+
+          this.pieChartLabels =
+
+            Object.keys(categoryMap);
+
+          this.pieChartDatasets = [
+
+            {
+              data: Object.values(
+                categoryMap
+              ) as number[],
+            },
+          ];
         },
 
-        error: (error: any) => {
+        error: (err) => {
 
-          console.error(
-            'Error loading stats:',
-            error
-          );
-
-          this.loading.stats = false;
-        },
+          console.error(err);
+        }
       });
   }
 
   // =========================
-  // FORMATTERS
+  // LIVE BUDGET UPDATE
   // =========================
 
-  formatCurrency(amount: number): string {
+  updateBudget(): void {
 
-    return new Intl.NumberFormat(
+    this.remainingBudget =
 
-      'en-IN',
+      this.budget -
+      this.totalAmount;
 
-      {
-        style: 'currency',
+    this.budgetPercentage =
 
-        currency: 'INR',
-      }
+      Math.min(
 
-    ).format(amount || 0);
+        (this.totalAmount /
+          this.budget) * 100,
+
+        100
+      );
   }
 
-  formatDate(dateString: string): string {
+  // =========================
+  // SEARCH FILTER
+  // =========================
 
-    return new Date(dateString)
+  filterExpenses(): void {
 
-      .toLocaleDateString(
+    const text =
 
-        'en-US',
+      this.searchText
+        .toLowerCase();
 
-        {
-          year: 'numeric',
+    this.filteredExpenses =
 
-          month: 'short',
+      this.expenses.filter(
 
-          day: 'numeric',
-        }
+        (expense) =>
+
+          expense.title
+            ?.toLowerCase()
+            .includes(text)
+
+          ||
+
+          expense.category
+            ?.toLowerCase()
+            .includes(text)
       );
+  }
+
+  // =========================
+  // DELETE EXPENSE
+  // =========================
+
+  deleteExpense(id: string): void {
+
+    const confirmDelete =
+
+      confirm(
+        'Delete this expense?'
+      );
+
+    if (!confirmDelete) return;
+
+    this.expenseService
+
+      .deleteExpense(id)
+
+      .then(() => {
+
+        alert(
+          'Expense deleted'
+        );
+      })
+
+      .catch((err) => {
+
+        console.error(err);
+      });
   }
 }

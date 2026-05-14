@@ -4,7 +4,13 @@ import {
   Firestore,
   collection,
   collectionData,
+  query,
+  where,
 } from '@angular/fire/firestore';
+
+import {
+  Auth
+} from '@angular/fire/auth';
 
 import { Observable, map } from 'rxjs';
 
@@ -16,19 +22,32 @@ export class AdminService {
 
   firestore = inject(Firestore);
 
+  auth = inject(Auth);
+
   // =========================
   // DASHBOARD STATS
   // =========================
 
   getStats(): Observable<any> {
 
-    const expenseRef = collection(
-      this.firestore,
-      'expenses'
+    const user = this.auth.currentUser;
+
+    const expenseQuery = query(
+
+      collection(
+        this.firestore,
+        'expenses'
+      ),
+
+      where(
+        'uid',
+        '==',
+        user?.uid || ''
+      )
     );
 
     return collectionData(
-      expenseRef,
+      expenseQuery,
       { idField: 'id' }
 
     ).pipe(
@@ -155,13 +174,24 @@ export class AdminService {
     userId: string
   ): Observable<any> {
 
-    const expenseRef = collection(
-      this.firestore,
-      'expenses'
+    const user = this.auth.currentUser;
+
+    const expenseQuery = query(
+
+      collection(
+        this.firestore,
+        'expenses'
+      ),
+
+      where(
+        'uid',
+        '==',
+        user?.uid || ''
+      )
     );
 
     return collectionData(
-      expenseRef,
+      expenseQuery,
       { idField: 'id' }
 
     ) as Observable<any>;

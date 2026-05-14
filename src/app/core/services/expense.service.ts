@@ -8,8 +8,14 @@ import {
   deleteDoc,
   updateDoc,
   getDoc,
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from '@angular/fire/firestore';
+
+import {
+  Auth
+} from '@angular/fire/auth';
 
 import { Observable } from 'rxjs';
 
@@ -20,6 +26,8 @@ import { Observable } from 'rxjs';
 export class ExpenseService {
 
   firestore = inject(Firestore);
+
+  auth = inject(Auth);
 
   collectionName = 'expenses';
 
@@ -34,25 +42,43 @@ export class ExpenseService {
       this.collectionName
     );
 
-    return addDoc(expenseRef, expense);
+    const user = this.auth.currentUser;
+
+    return addDoc(expenseRef, {
+
+      ...expense,
+
+      uid: user?.uid || ''
+    });
   }
 
   // =========================
-  // GET ALL EXPENSES
+  // GET USER EXPENSES
   // =========================
 
   getExpenses(): Observable<any[]> {
 
     return new Observable((observer) => {
 
-      const expenseRef = collection(
-        this.firestore,
-        this.collectionName
+      const user = this.auth.currentUser;
+
+      const expenseQuery = query(
+
+        collection(
+          this.firestore,
+          this.collectionName
+        ),
+
+        where(
+          'uid',
+          '==',
+          user?.uid || ''
+        )
       );
 
       const unsubscribe = onSnapshot(
 
-        expenseRef,
+        expenseQuery,
 
         (snapshot) => {
 
